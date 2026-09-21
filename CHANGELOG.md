@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.10.0](https://github.com/DimQ1/deepseek-v4-for-copilot/compare/v0.9.2...v0.10.0) (2026-09-21)
+
+
+### Features
+
+* **provider:** enforce DeepSeek tool budget instead of failing requests ([cf863a7](https://github.com/DimQ1/deepseek-v4-for-copilot/commit/cf863a7)): trim the tools array deterministically to the API limit with a one-time chat notice; new settings `deepseek-copilot.toolsLimitBehavior`, `deepseek-copilot.toolsLimit`, `deepseek-copilot.sendUserId`
+* **provider:** sanitize tool names, skip stabilization preflight when already over the limit, honor `toolMode: Required` when thinking is disabled
+* **client:** retry once on HTTP 429/500/503 and surface server hints for 400/422 in the chat
+
+
+### Bug Fixes
+
+* **provider:** repair `tool_calls`/`tool` message pairing so a cancelled tool call no longer breaks the conversation with HTTP 400
+* **provider:** report the replay marker on cancellation or stream error so thinking-mode `reasoning_content` is still replayed with tools
+* **provider:** skip tool calls with malformed JSON arguments instead of invoking them with empty input
+* **provider:** send Copilot's system prompt with the `system` role
+
+
+### Miscellaneous
+
+* **ci:** add tag-based VSIX build and GitHub Release workflow (`build-release.yml`)
+
 ## [0.9.2](https://github.com/Vizards/deepseek-v4-for-copilot/compare/v0.9.1...v0.9.2) (2026-09-14)
 
 
