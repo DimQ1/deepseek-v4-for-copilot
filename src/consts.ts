@@ -27,6 +27,12 @@ export const CONFIGURE_API_KEY_URI_PATH = '/setApiKey';
 /** URI path handled by this extension to open vision model configuration. */
 export const SET_VISION_MODEL_URI_PATH = '/setVisionModel';
 
+/** URI path handled by this extension to open VS Code's Configure Tools picker. */
+export const CONFIGURE_TOOLS_URI_PATH = '/configureTools';
+
+/** memento key holding the anonymous DeepSeek `user_id` (opt-in setting). */
+export const USER_ID_STATE_KEY = 'deepseek-copilot.anonymousUserId';
+
 // VS Code's internal LanguageModelChatMessageRole.System is not exposed in @types/vscode.
 export const LANGUAGE_MODEL_CHAT_SYSTEM_ROLE = 3;
 

@@ -1,4 +1,5 @@
 import vscode from 'vscode';
+import { LANGUAGE_MODEL_CHAT_SYSTEM_ROLE } from '../consts';
 import { safeStringify } from '../json';
 import type {
 	DeepSeekContentPart,
@@ -91,7 +92,7 @@ export function convertMessages(
 				});
 			} else if (content) {
 				result.push({
-					role: role as 'user' | 'assistant',
+					role,
 					content: content,
 				});
 			}
@@ -171,12 +172,19 @@ function normalizeThinkingPartText(value: string | string[]): string {
 	return Array.isArray(value) ? value.join('') : value;
 }
 
-function mapRole(role: vscode.LanguageModelChatMessageRole): 'user' | 'assistant' {
+/**
+ * Copilot sends its system prompt with the (not yet public) System role. DeepSeek
+ * supports `system` natively; sending it as `user` weakens tool-use instructions
+ * and produces two consecutive user messages.
+ */
+function mapRole(role: vscode.LanguageModelChatMessageRole): 'system' | 'user' | 'assistant' {
 	switch (role) {
 		case vscode.LanguageModelChatMessageRole.User:
 			return 'user';
 		case vscode.LanguageModelChatMessageRole.Assistant:
 			return 'assistant';
+		case LANGUAGE_MODEL_CHAT_SYSTEM_ROLE as vscode.LanguageModelChatMessageRole:
+			return 'system';
 		default:
 			return 'user';
 	}

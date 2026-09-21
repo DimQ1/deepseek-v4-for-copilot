@@ -1,6 +1,13 @@
 import vscode from 'vscode';
 import { AuthManager } from '../auth';
-import { getApiModelId, getBaseUrl, getStabilizeToolListEnabled } from '../config';
+import {
+	getApiModelId,
+	getBaseUrl,
+	getSendUserIdEnabled,
+	getStabilizeToolListEnabled,
+	getToolsLimit,
+	getToolsLimitBehavior,
+} from '../config';
 import { MODELS } from '../consts';
 import { isOfficialDeepSeekBaseUrl, normalizeBaseUrl } from '../endpoint';
 import { t } from '../i18n';
@@ -14,7 +21,10 @@ import { classifyProviderRequest } from './routing';
 import { resolveConversationSegment } from './segment';
 import { streamChatCompletion } from './stream';
 import { estimateTokenCount } from './tokens';
+import { resolveToolsLimit } from './tools/budget';
 import { processToolFlow } from './tools/flow';
+import { createToolBudgetNotice, ToolBudgetNoticeTracker } from './tools/notices';
+import { getOrCreateAnonymousUserId } from './user-id';
 import { createVisionService } from './vision';
 
 /**
@@ -31,6 +41,8 @@ export class DeepSeekChatProvider implements vscode.LanguageModelChatProvider {
 		this.onDidChangeLanguageModelChatInformationEmitter.event;
 
 	private readonly cacheDiagnostics = createCacheDiagnosticsRecorder();
+	private readonly toolBudgetNotices = new ToolBudgetNoticeTracker();
+	private readonly globalState: vscode.Memento;
 
 	/** Vision proxy: internal bridge + VS Code LM fallback. */
 	private readonly vision: ReturnType<typeof createVisionService>;
@@ -47,6 +59,7 @@ export class DeepSeekChatProvider implements vscode.LanguageModelChatProvider {
 		this.authManager = new AuthManager(context);
 		this.globalStorageUri = context.globalStorageUri;
 		this.storageUri = context.storageUri;
+		this.globalState = context.globalState;
 		this.vision = createVisionService(context);
 		this.balanceCurrencyResolver = new BalanceCurrencyResolver(context, this.authManager, () =>
 			this.onDidChangeLanguageModelChatInformationEmitter.fire(),
@@ -171,8 +184,11 @@ export class DeepSeekChatProvider implements vscode.LanguageModelChatProvider {
 			requestKind,
 		});
 
+		const modelDef = MODELS.find((m) => m.id === modelInfo.id);
 		const toolFlow = processToolFlow({
 			stabilizeToolList: getStabilizeToolListEnabled(),
+			toolsLimit: resolveToolsLimit(getToolsLimit(), modelDef?.capabilities.toolCalling),
+			toolsLimitBehavior: getToolsLimitBehavior(),
 			messages,
 			tools: options.tools,
 			progress,
@@ -193,13 +209,25 @@ export class DeepSeekChatProvider implements vscode.LanguageModelChatProvider {
 			token,
 			cacheDiagnostics: this.cacheDiagnostics,
 			getVisionDescriber: () => this.vision.get(),
+			userId: getSendUserIdEnabled() ? getOrCreateAnonymousUserId(this.globalState) : undefined,
 		});
+
+		// Always consult the tracker so a segment that stops trimming resets its state.
+		const reportToolBudget = this.toolBudgetNotices.shouldReport(
+			segment.segmentId,
+			prepared.toolBudget,
+		);
+		const toolBudgetNotice =
+			reportToolBudget && prepared.toolBudget
+				? createToolBudgetNotice(prepared.toolBudget)
+				: undefined;
 
 		return streamChatCompletion({
 			prepared,
 			progress,
 			token,
 			initialResponseNotice: joinInitialResponseNotices(
+				toolBudgetNotice,
 				toolFlow.initialResponseNotice,
 				prepared.initialResponseNotice,
 			),

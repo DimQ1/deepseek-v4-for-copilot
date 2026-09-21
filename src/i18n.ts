@@ -190,6 +190,12 @@ const zh: Translations = {
 	'vision.proxy.error.unknown': '未知错误',
 
 	// Request
+	'request.toolsLimitExceeded':
+		'DeepSeek 单次 tools 请求最多支持 {0} 个 functions，当前请求包含 {1} 个。请先用 VS Code 的 Configure Tools 关闭不常用的工具；如果正在使用实验性稳定工具列表设置，请关闭它。也可以将 `deepseek-copilot.toolsLimitBehavior` 设为 `trim`，自动裁剪工具列表。',
+	'notice.toolBudget':
+		'⚠️ DeepSeek 单次请求最多接受 {0} 个工具。本次发送了 {2} 个已启用工具中的 {1} 个，{3} 个被省略。请用 [Configure Tools]({4}) 选择要保留的工具。[了解更多](https://github.com/Vizards/deepseek-v4-for-copilot/blob/main/docs/notices/tool-budget.zh.md)',
+	'notice.toolCallArgumentsInvalid':
+		'⚠️ DeepSeek 返回的 `{0}` 工具调用参数不是有效的 JSON（通常是输出被截断），该调用已跳过。请重试或缩小任务范围。',
 	'request.preflightRoundLimitExceeded':
 		'实验性稳定工具列表设置已尝试 {0} 轮，仍无法得到稳定的已启用工具列表。请关闭该实验性设置，或先用 VS Code 的 Configure Tools 关闭不常用的工具。',
 	'notice.visionProxyMissing': '⚠️ 视觉代理不可用，DeepSeek 无法看到图片。[配置视觉代理]({0})',
@@ -209,6 +215,7 @@ const zh: Translations = {
 	'error.http.500': '[{0}] 服务器内部故障。请等待后重试。',
 	'error.http.503': '[{0}] 服务器负载过高。请稍后重试您的请求。',
 	'error.http.generic': '[{0}] 服务返回错误响应。',
+	'error.http.serverMessage': '服务端提示：{0}',
 	'error.action.setApiKey': '设置 API Key',
 	'error.action.createApiKey': '创建 API Key',
 	'error.action.viewUsage': '用量',
@@ -432,6 +439,12 @@ const en: Translations = {
 	'vision.proxy.error.unknown': 'unknown',
 
 	// Request
+	'request.toolsLimitExceeded':
+		'DeepSeek supports at most {0} functions in a single `tools` request, but this request contains {1}. Use VS Code Configure Tools to disable tools you rarely use. If the experimental tool-list stabilization setting is enabled, turn it off. Alternatively set `deepseek-copilot.toolsLimitBehavior` to `trim` to send a trimmed tool list automatically.',
+	'notice.toolBudget':
+		'⚠️ DeepSeek accepts at most {0} tools per request. {1} of {2} enabled tools were sent; {3} were left out. Use [Configure Tools]({4}) to choose which tools stay enabled. [Learn more](https://github.com/Vizards/deepseek-v4-for-copilot/blob/main/docs/notices/tool-budget.en.md)',
+	'notice.toolCallArgumentsInvalid':
+		'⚠️ DeepSeek returned a `{0}` tool call with malformed JSON arguments (usually truncated output); the call was skipped. Try again or narrow the task.',
 	'request.preflightRoundLimitExceeded':
 		'Experimental tool-list stabilization tried {0} rounds but still could not get a stable enabled-tools list. Turn this experimental setting off, or use VS Code Configure Tools to disable tools you rarely use first.',
 	'notice.visionProxyMissing':
@@ -458,6 +471,7 @@ const en: Translations = {
 	'error.http.503':
 		'[{0}] The server is overloaded due to high traffic. Please retry your request after a brief wait.',
 	'error.http.generic': '[{0}] The service returned an error response.',
+	'error.http.serverMessage': 'Server message: {0}',
 	'error.action.setApiKey': 'Set API Key',
 	'error.action.createApiKey': 'Create API Key',
 	'error.action.viewUsage': 'Usage',

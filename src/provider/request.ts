@@ -1,21 +1,37 @@
 import vscode from 'vscode';
 import { AuthManager } from '../auth';
 import { createApiKeyNotConfiguredError, DeepSeekClient } from '../client';
-import { getApiModelId, getBaseUrl, getMaxTokens, getRequestHeaders } from '../config';
+import {
+	getApiModelId,
+	getBaseUrl,
+	getMaxTokens,
+	getRequestHeaders,
+	getStabilizeToolListEnabled,
+	getToolsLimit,
+	getToolsLimitBehavior,
+} from '../config';
 import { MODELS } from '../consts';
 import { isOfficialDeepSeekBaseUrl } from '../endpoint';
 import type { DeepSeekRequest } from '../types';
 import { convertMessages, countMessageChars } from './convert';
 import {
 	dumpDeepSeekRequest,
+	logToolBudgetDiagnostics,
+	logToolPairingDiagnostics,
 	type CacheDiagnosticsRecorder,
 	type CacheDiagnosticsRun,
 } from './debug';
 import { resolveRequestHeaders } from './headers';
-import { getConfiguredThinkingEffort, type ModelConfigurationOptions } from './models';
+import {
+	getConfiguredThinkingEffort,
+	type ModelConfigurationOptions,
+	type ThinkingEffort,
+} from './models';
 import type { ReplayMarkerMetadata } from './replay';
 import { classifyDeepSeekRequest, shouldForceThinkingNone, type RequestKind } from './routing';
 import type { ConversationSegment } from './segment';
+import { resolveToolsLimit, type ToolBudgetResult } from './tools/budget';
+import { repairToolCallPairing } from './tools/pairing';
 import { collectTrailingToolResultIds, prepareRequestTools } from './tools/request';
 import {
 	finalizeVisionResolutionStats,
@@ -36,6 +52,7 @@ export interface PreparedChatRequest {
 	replayMarkerMetadata: ReplayMarkerMetadata;
 	visionMarkerTextChars?: number;
 	initialResponseNotice?: string;
+	toolBudget?: ToolBudgetResult;
 }
 
 export interface PrepareChatRequestOptions {
@@ -49,6 +66,8 @@ export interface PrepareChatRequestOptions {
 	token: vscode.CancellationToken;
 	cacheDiagnostics: CacheDiagnosticsRecorder;
 	getVisionDescriber: () => Promise<VisionDescriber | undefined>;
+	/** Stable anonymous DeepSeek `user_id`; omitted unless the opt-in setting is on. */
+	userId?: string;
 }
 
 export async function prepareChatRequest({
@@ -62,6 +81,7 @@ export async function prepareChatRequest({
 	token,
 	cacheDiagnostics,
 	getVisionDescriber,
+	userId,
 }: PrepareChatRequestOptions): Promise<PreparedChatRequest> {
 	const apiKey = await authManager.getApiKey();
 	if (!apiKey) {
@@ -85,9 +105,22 @@ export async function prepareChatRequest({
 
 	const resolvedMessages = visionResolution.messages;
 
-	const deepseekMessages = convertMessages(resolvedMessages, isThinkingModel, nativeImageInput);
+	const pairing = repairToolCallPairing(
+		convertMessages(resolvedMessages, isThinkingModel, nativeImageInput),
+	);
+	const deepseekMessages = pairing.messages;
 	finalizeVisionResolutionStats(visionResolution.stats, deepseekMessages);
-	const tools = prepareRequestTools(modelDef?.capabilities.toolCalling, options);
+
+	const { tools, budget: toolBudget } = prepareRequestTools(
+		modelDef?.capabilities.toolCalling,
+		options,
+		deepseekMessages,
+		{
+			limit: resolveToolsLimit(getToolsLimit(), modelDef?.capabilities.toolCalling),
+			behavior: getToolsLimitBehavior(),
+			stabilizeToolList: getStabilizeToolListEnabled(),
+		},
+	);
 
 	const totalRequestChars = countMessageChars(deepseekMessages);
 	const hasNativeImages =
@@ -102,11 +135,18 @@ export async function prepareChatRequest({
 		tools,
 		tool_choice: tools && tools.length > 0 ? ('auto' as const) : undefined,
 		max_tokens: maxTokens,
+		...(userId ? { user_id: userId } : {}),
 	};
 	const requestKind = classifyDeepSeekRequest({
 		request: baseRequest,
 		inputMessages: messages,
 	});
+	logToolPairingDiagnostics({
+		requestKind,
+		orphanToolCalls: pairing.orphanToolCalls,
+		orphanToolResults: pairing.orphanToolResults,
+	});
+	logToolBudgetDiagnostics({ requestKind, budget: toolBudget });
 	const configuredThinkingEffort = thinkingCapability
 		? getConfiguredThinkingEffort(options as ModelConfigurationOptions, thinkingCapability)
 		: 'none';
@@ -117,6 +157,7 @@ export async function prepareChatRequest({
 	const thinkingEffort = forceNoneThinking ? 'none' : configuredThinkingEffort;
 	const request: DeepSeekRequest = {
 		...baseRequest,
+		tool_choice: resolveToolChoice(baseRequest.tool_choice, options.toolMode, thinkingEffort),
 		...(isThinkingModel
 			? {
 					thinking: {
@@ -140,6 +181,7 @@ export async function prepareChatRequest({
 		visionModelId: visionResolution.visionModelId,
 		visionProxySource: visionResolution.visionProxySource,
 		visionStats: visionResolution.stats,
+		toolBudget,
 	});
 
 	const diagnosticsRun = cacheDiagnostics.beginRequest({
@@ -170,5 +212,26 @@ export async function prepareChatRequest({
 		replayMarkerMetadata: visionResolution.replayMarkerMetadata,
 		visionMarkerTextChars: visionResolution.stats.markerVisionTextChars || undefined,
 		initialResponseNotice: visionResolution.initialResponseNotice,
+		toolBudget,
 	};
+}
+
+/**
+ * DeepSeek rejects `tool_choice: required` in thinking mode (HTTP 400), so the
+ * host's Required tool mode is honored only when thinking is disabled for this
+ * request (typically Copilot helper requests with a single tool).
+ */
+function resolveToolChoice(
+	baseToolChoice: DeepSeekRequest['tool_choice'],
+	toolMode: vscode.LanguageModelChatToolMode | undefined,
+	thinkingEffort: ThinkingEffort,
+): DeepSeekRequest['tool_choice'] {
+	if (
+		baseToolChoice === 'auto' &&
+		toolMode === vscode.LanguageModelChatToolMode.Required &&
+		thinkingEffort === 'none'
+	) {
+		return 'required';
+	}
+	return baseToolChoice;
 }

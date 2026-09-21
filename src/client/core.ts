@@ -10,6 +10,14 @@ import type {
 } from '../types';
 import { createHttpError, formatRequestError, normalizeRequestError } from './error';
 
+// DeepSeek error codes documented as "retry after a brief wait": 429 (rate
+// limit / concurrency), 500 (server error), 503 (overloaded). One retry is
+// enough to absorb transient spikes without masking real outages.
+const RETRYABLE_HTTP_STATUSES = new Set([429, 500, 503]);
+const MAX_HTTP_RETRIES = 1;
+const DEFAULT_RETRY_DELAY_MS = 1_500;
+const MAX_RETRY_DELAY_MS = 10_000;
+
 /**
  * Lightweight SSE-streaming DeepSeek API client.
  * No external dependencies — uses Node's built-in fetch.
@@ -20,6 +28,47 @@ export class DeepSeekClient {
 		private readonly apiKey: string,
 		private readonly requestHeaders: Readonly<Record<string, string>> = {},
 	) {}
+
+	/**
+	 * POST the request, retrying once on transient HTTP failures before any
+	 * response body has been consumed. Never retries after streaming started.
+	 */
+	private async fetchWithRetry(
+		body: string,
+		headers: Headers,
+		signal: AbortSignal,
+		request: DeepSeekRequest,
+	): Promise<Response> {
+		for (let attempt = 0; ; attempt += 1) {
+			const response = await fetch(`${this.baseUrl}/chat/completions`, {
+				method: 'POST',
+				headers,
+				body,
+				signal,
+			});
+
+			if (response.ok) {
+				return response;
+			}
+			if (
+				attempt >= MAX_HTTP_RETRIES ||
+				!RETRYABLE_HTTP_STATUSES.has(response.status) ||
+				signal.aborted
+			) {
+				throw await createHttpError(response, { baseUrl: this.baseUrl, request });
+			}
+
+			const delayMs = resolveRetryDelayMs(response.headers.get('retry-after'));
+			logger.warn(
+				`DeepSeek API returned HTTP ${response.status}; retrying in ${delayMs}ms (attempt ${attempt + 1}/${MAX_HTTP_RETRIES})`,
+			);
+			await response.body?.cancel().catch(() => undefined);
+			await sleep(delayMs, signal);
+			if (signal.aborted) {
+				throw await createHttpError(response, { baseUrl: this.baseUrl, request });
+			}
+		}
+	}
 
 	/**
 	 * Stream a chat completion from the DeepSeek API.
@@ -53,16 +102,12 @@ export class DeepSeekClient {
 				headers.set(name, value);
 			}
 
-			const response = await fetch(`${this.baseUrl}/chat/completions`, {
-				method: 'POST',
+			const response = await this.fetchWithRetry(
+				safeStringify(requestBody),
 				headers,
-				body: safeStringify(requestBody),
-				signal: controller.signal,
-			});
-
-			if (!response.ok) {
-				throw await createHttpError(response, { baseUrl: this.baseUrl, request });
-			}
+				controller.signal,
+				request,
+			);
 
 			if (!response.body) {
 				throw new Error('No response body received');
@@ -200,4 +245,36 @@ function reportFinalUsage(callbacks: StreamCallbacks, usage: DeepSeekUsage | und
 
 function isAbortError(error: unknown): boolean {
 	return error instanceof Error && error.name === 'AbortError';
+}
+
+function resolveRetryDelayMs(retryAfterHeader: string | null): number {
+	if (!retryAfterHeader) {
+		return DEFAULT_RETRY_DELAY_MS;
+	}
+	const seconds = Number.parseFloat(retryAfterHeader);
+	if (Number.isFinite(seconds) && seconds >= 0) {
+		return Math.min(Math.round(seconds * 1000), MAX_RETRY_DELAY_MS);
+	}
+	const date = Date.parse(retryAfterHeader);
+	if (Number.isFinite(date)) {
+		return Math.min(Math.max(date - Date.now(), 0), MAX_RETRY_DELAY_MS);
+	}
+	return DEFAULT_RETRY_DELAY_MS;
+}
+
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+	return new Promise((resolve) => {
+		if (signal.aborted) {
+			resolve();
+			return;
+		}
+		const timer = setTimeout(finish, ms);
+		signal.addEventListener('abort', finish, { once: true });
+
+		function finish(): void {
+			clearTimeout(timer);
+			signal.removeEventListener('abort', finish);
+			resolve();
+		}
+	});
 }

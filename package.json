@@ -139,6 +139,43 @@
           },
           "markdownDescription": "%deepseek-copilot.config.requestHeaders.description%"
         },
+        "deepseek-copilot.toolsLimitBehavior": {
+          "type": "string",
+          "default": "trim",
+          "enum": [
+            "trim",
+            "error"
+          ],
+          "enumItemLabels": [
+            "%deepseek-copilot.config.toolsLimitBehavior.trim.label%",
+            "%deepseek-copilot.config.toolsLimitBehavior.error.label%"
+          ],
+          "markdownEnumDescriptions": [
+            "%deepseek-copilot.config.toolsLimitBehavior.trim.description%",
+            "%deepseek-copilot.config.toolsLimitBehavior.error.description%"
+          ],
+          "markdownDescription": "%deepseek-copilot.config.toolsLimitBehavior.description%",
+          "tags": [
+            "advanced"
+          ]
+        },
+        "deepseek-copilot.toolsLimit": {
+          "type": "number",
+          "default": 128,
+          "minimum": 1,
+          "markdownDescription": "%deepseek-copilot.config.toolsLimit.description%",
+          "tags": [
+            "advanced"
+          ]
+        },
+        "deepseek-copilot.sendUserId": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%deepseek-copilot.config.sendUserId.description%",
+          "tags": [
+            "advanced"
+          ]
+        },
         "deepseek-copilot.experimental.stabilizeToolList": {
           "type": "boolean",
           "default": false,
