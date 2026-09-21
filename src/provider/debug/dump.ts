@@ -18,6 +18,7 @@ import {
 	type RequestKind,
 } from '../routing';
 import type { ConversationSegment } from '../segment';
+import type { ToolBudgetResult } from '../tools/budget';
 import { ACTIVATE_TOOL_PREFIX } from '../tools/consts';
 import type { VisionProxySource, VisionResolutionStats } from '../vision';
 
@@ -109,6 +110,7 @@ export interface DumpDeepSeekRequestOptions {
 	visionModelId?: string;
 	visionProxySource?: VisionProxySource;
 	visionStats?: VisionResolutionStats;
+	toolBudget?: ToolBudgetResult;
 }
 
 export interface DumpProviderInputOptions {
@@ -363,9 +365,27 @@ function createPipelineSnapshot(
 					}
 				: undefined,
 		deepSeekPromptSummary: summarizeDeepSeekSystemPrompt(request.messages),
+		toolBudget: summarizeToolBudget(options.toolBudget),
 		messages,
 		requestOptions: options.requestOptions,
 	});
+}
+
+function summarizeToolBudget(budget: ToolBudgetResult | undefined): object | undefined {
+	if (!budget) {
+		return undefined;
+	}
+	return {
+		limit: budget.limit,
+		total: budget.total,
+		kept: budget.kept,
+		pinned: budget.pinned,
+		exceeded: budget.exceeded,
+		trimmed: budget.trimmed,
+		dropped: budget.dropped,
+		deduplicated: budget.deduplicated,
+		invalid: budget.invalid,
+	};
 }
 
 function createDumpSnapshot(options: {
@@ -376,6 +396,7 @@ function createDumpSnapshot(options: {
 	model: object;
 	vision?: object;
 	deepSeekPromptSummary?: SystemPromptSummary;
+	toolBudget?: object;
 	messages: readonly vscode.LanguageModelChatRequestMessage[];
 	requestOptions: vscode.ProvideLanguageModelChatResponseOptions;
 }): object {
@@ -394,6 +415,7 @@ function createDumpSnapshot(options: {
 		vision: options.vision,
 		systemPromptSummary: summarizeVscodeSystemPrompt(options.messages),
 		deepSeekPromptSummary: options.deepSeekPromptSummary,
+		toolBudget: options.toolBudget,
 		messageStats: summarizeMessages(serializedMessages),
 		messages: serializedMessages,
 		toolStats: summarizeTools(options.requestOptions.tools),

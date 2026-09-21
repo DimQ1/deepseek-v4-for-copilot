@@ -1,5 +1,6 @@
 import vscode from 'vscode';
 import { CONFIG_SECTION } from './consts';
+import type { ToolsLimitBehavior } from './provider/tools/budget';
 
 export type DebugMode = 'minimal' | 'metadata' | 'verbose';
 
@@ -72,6 +73,31 @@ export function getRequestDumpEnabled(): boolean {
 export function getStabilizeToolListEnabled(): boolean {
 	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
 	return config.get<boolean>('experimental.stabilizeToolList', false);
+}
+
+/**
+ * What to do when more tools are enabled than the API accepts per request:
+ * `trim` sends a deterministic subset, `error` fails the request (legacy).
+ */
+export function getToolsLimitBehavior(): ToolsLimitBehavior {
+	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
+	return config.get<string>('toolsLimitBehavior') === 'error' ? 'error' : 'trim';
+}
+
+/**
+ * Maximum number of functions per request. Returns `undefined` when unset or
+ * invalid so the model capability / DeepSeek default applies.
+ */
+export function getToolsLimit(): number | undefined {
+	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
+	const value = config.get<number>('toolsLimit');
+	return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+/** Opt-in: send a stable anonymous `user_id` with chat requests. */
+export function getSendUserIdEnabled(): boolean {
+	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
+	return config.get<boolean>('sendUserId', false);
 }
 
 /**

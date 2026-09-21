@@ -1,5 +1,6 @@
 import vscode from 'vscode';
 import { createUserFacingError } from '../client';
+import { t } from '../i18n';
 import { logger } from '../logger';
 import type { DeepSeekToolCall, DeepSeekUsage } from '../types';
 import {
@@ -95,17 +96,17 @@ export function streamChatCompletion({
 			token,
 		)
 		.then(undefined, (error) => {
-			reportSkippedReplayMarkerIfNeeded(
+			reportReplayMarkerOnce(
 				prepared,
+				progress,
 				state,
 				token.isCancellationRequested ? 'cancelled' : 'stream-error',
-				error,
 			);
 			throw error;
 		})
 		.then(() => {
 			if (token.isCancellationRequested) {
-				reportSkippedReplayMarkerIfNeeded(prepared, state, 'cancelled');
+				reportReplayMarkerOnce(prepared, progress, state, 'cancelled');
 			}
 		})
 		.finally(() => {
@@ -125,6 +126,12 @@ function reportInitialResponseNoticeOnce(
 	progress.report(new vscode.LanguageModelTextPart(initialResponseNotice));
 }
 
+/**
+ * Report the replay marker exactly once per response. This also runs after a
+ * cancellation or stream error: Copilot keeps the partial assistant message in
+ * the history, and DeepSeek thinking mode with tools requires the matching
+ * `reasoning_content` to come back on later turns (otherwise HTTP 400).
+ */
 function reportReplayMarkerOnce(
 	prepared: PreparedChatRequest,
 	progress: vscode.Progress<vscode.LanguageModelResponsePart>,
@@ -136,25 +143,6 @@ function reportReplayMarkerOnce(
 	}
 	state.replayMarkerReported = true;
 	reportReplayMarker(prepared, progress, state, trigger);
-}
-
-function reportSkippedReplayMarkerIfNeeded(
-	prepared: PreparedChatRequest,
-	state: ResponseStreamState,
-	reason: 'cancelled' | 'stream-error',
-	error?: unknown,
-): void {
-	if (state.replayMarkerReported) {
-		return;
-	}
-	state.replayMarkerReported = true;
-	prepared.cacheDiagnostics.onReplayMarkerReport({
-		status: 'skipped',
-		reason,
-		visionTextChars: prepared.visionMarkerTextChars,
-		reasoningTextChars: state.accumulatedReasoning.length || undefined,
-		error,
-	});
 }
 
 function reportReplayMarker(
@@ -228,15 +216,37 @@ function handleToolCall(
 	state: ResponseStreamState,
 	progress: vscode.Progress<vscode.LanguageModelResponsePart>,
 ): void {
-	state.emittedToolCallIds.push(toolCall.id);
-
-	try {
-		const args = JSON.parse(toolCall.function.arguments);
-		progress.report(
-			new vscode.LanguageModelToolCallPart(toolCall.id, toolCall.function.name, args),
+	const args = parseToolCallArguments(toolCall.function.arguments);
+	if (!args) {
+		// Typically truncated output (finish_reason=length). Invoking the tool with
+		// empty input would silently run it with the wrong arguments.
+		logger.warn(
+			`Skipped DeepSeek tool call ${toolCall.function.name} (${toolCall.id}): malformed JSON arguments (${toolCall.function.arguments.length} chars)`,
 		);
+		progress.report(
+			new vscode.LanguageModelTextPart(
+				`\n\n${t('notice.toolCallArgumentsInvalid', toolCall.function.name)}\n`,
+			),
+		);
+		return;
+	}
+
+	state.emittedToolCallIds.push(toolCall.id);
+	progress.report(new vscode.LanguageModelToolCallPart(toolCall.id, toolCall.function.name, args));
+}
+
+function parseToolCallArguments(raw: string): Record<string, unknown> | undefined {
+	// Functions without parameters may arrive with empty arguments.
+	if (raw.trim().length === 0) {
+		return {};
+	}
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+			? (parsed as Record<string, unknown>)
+			: undefined;
 	} catch {
-		progress.report(new vscode.LanguageModelToolCallPart(toolCall.id, toolCall.function.name, {}));
+		return undefined;
 	}
 }
 

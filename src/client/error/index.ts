@@ -37,10 +37,13 @@ export class DeepSeekRequestError extends Error {
 	readonly baseUrl?: string;
 	readonly status?: number;
 	readonly code?: string;
+	/** Server-provided hint shown to the user for request-shape errors (400/422). */
+	readonly userDetail?: string;
 
 	constructor(options: {
 		message: string;
 		userSummary?: string;
+		userDetail?: string;
 		kind: DeepSeekRequestErrorKind;
 		diagnosticMessage?: string;
 		baseUrl?: string;
@@ -52,12 +55,17 @@ export class DeepSeekRequestError extends Error {
 		this.name = 'DeepSeekRequestError';
 		this.kind = options.kind;
 		this.userSummary = options.userSummary ?? options.message;
+		this.userDetail = options.userDetail;
 		this.diagnosticMessage = options.diagnosticMessage ?? options.message;
 		this.baseUrl = options.baseUrl;
 		this.status = options.status;
 		this.code = options.code;
 	}
 }
+
+// DeepSeek documents 400/422 as "modify your request according to the hints in
+// the error message", so the server message must reach the user, not only the log.
+const HTTP_STATUSES_WITH_USER_DETAIL = new Set([400, 422]);
 
 export async function createHttpError(
 	response: Response,
@@ -74,6 +82,10 @@ export async function createHttpError(
 	return new DeepSeekRequestError({
 		message: `DeepSeek API request failed with HTTP ${response.status}`,
 		userSummary,
+		userDetail:
+			serverMessage && HTTP_STATUSES_WITH_USER_DETAIL.has(response.status)
+				? t('error.http.serverMessage', serverMessage)
+				: undefined,
 		kind: 'http',
 		baseUrl,
 		status: response.status,
@@ -151,7 +163,11 @@ export function formatRequestError(error: Error): string {
 export function createUserFacingError(error: Error): Error {
 	const message =
 		error instanceof DeepSeekRequestError
-			? formatMarkdownMessage(error.userSummary, getErrorActions(error, errorActionUrlStore.get()))
+			? formatMarkdownMessage(
+					error.userSummary,
+					getErrorActions(error, errorActionUrlStore.get()),
+					error.userDetail,
+				)
 			: error.message;
 	const displayError = new Error(message);
 	displayError.stack = undefined;
@@ -225,12 +241,22 @@ function getStringProperty(value: unknown, key: string): string | undefined {
 function formatMarkdownMessage(
 	summary: string,
 	actions: readonly ErrorActionLink[] | undefined = undefined,
+	detail: string | undefined = undefined,
 ): string {
-	const formattedSummary = `**${escapeBoldText(summary)}**`;
+	const lines = [`**${escapeBoldText(summary)}**`];
+	if (detail) {
+		lines.push(escapeMarkdownText(detail));
+	}
 	const actionLinks = actions?.map(formatActionLink).join(' · ');
-	return actionLinks
-		? [formattedSummary + '\\', '\\', `**${actionLinks}**`].join('\n')
-		: formattedSummary;
+	if (actionLinks) {
+		lines.push(`**${actionLinks}**`);
+	}
+	// Hard line breaks (trailing backslash) with a blank separator line between blocks.
+	return lines.map((line, index) => (index < lines.length - 1 ? `${line}\\\n\\` : line)).join('\n');
+}
+
+function escapeMarkdownText(value: string): string {
+	return value.replace(/[\\`*_{}[\]<>#]/g, (char) => `\\${char}`);
 }
 
 function formatActionLink(action: ErrorActionLink): string {

@@ -13,6 +13,7 @@ import {
 	type RequestKind,
 } from '../routing';
 import type { ConversationSegment } from '../segment';
+import type { ToolBudgetResult } from '../tools/budget';
 import { ACTIVATE_TOOL_PREFIX } from '../tools/consts';
 import type { ActivatePreflightInspection } from '../tools/preflight';
 import type { VisionResolutionStats as VisionPipelineStats, VisionProxySource } from '../vision';
@@ -194,7 +195,7 @@ export interface CacheDiagnosticsRun {
 
 export type ReplayMarkerReportStatus = 'reported' | 'failed' | 'skipped';
 
-export type ReplayMarkerReportTrigger = 'done';
+export type ReplayMarkerReportTrigger = 'done' | 'cancelled' | 'stream-error';
 
 export interface ReplayMarkerReportInfo {
 	status: ReplayMarkerReportStatus;
@@ -248,7 +249,7 @@ export function logToolFlowDiagnostics({
 	requestKind: RequestKind;
 	tools: readonly vscode.LanguageModelChatTool[] | undefined;
 	messagesFiltered: boolean;
-	preflight: 'skipped' | 'handled' | 'ready' | 'round-limit';
+	preflight: 'skipped' | 'skipped-over-limit' | 'handled' | 'ready' | 'round-limit';
 	activatePreflight?: ActivatePreflightInspection;
 	nextRound?: number;
 	initialResponseNotice?: boolean;
@@ -287,6 +288,60 @@ export function logToolFlowDiagnostics({
 	}
 
 	logger.info(formatRequestLogLine(requestKind, message));
+}
+
+/**
+ * Privacy-safe summary of the tool budget: counts only, no tool names or schemas.
+ * Logged only when the budget changed the request.
+ */
+export function logToolBudgetDiagnostics({
+	requestKind,
+	budget,
+}: {
+	requestKind: RequestKind;
+	budget: ToolBudgetResult | undefined;
+}): void {
+	if (!budget || !getDebugLoggingEnabled()) {
+		return;
+	}
+	if (!budget.trimmed && budget.deduplicated.length === 0 && budget.invalid.length === 0) {
+		return;
+	}
+
+	logger.info(
+		formatRequestLogLine(
+			requestKind,
+			`[tool-budget] limit=${budget.limit}` +
+				` total=${budget.total}` +
+				` kept=${budget.kept}` +
+				` pinned=${budget.pinned}` +
+				` dropped=${budget.dropped.length}` +
+				` dedup=${budget.deduplicated.length}` +
+				` invalid=${budget.invalid.length}` +
+				` trimmed=${budget.trimmed}`,
+		),
+	);
+}
+
+/** Always logged: a repaired history means Copilot handed us an inconsistent tool transcript. */
+export function logToolPairingDiagnostics({
+	requestKind,
+	orphanToolCalls,
+	orphanToolResults,
+}: {
+	requestKind: RequestKind;
+	orphanToolCalls: number;
+	orphanToolResults: number;
+}): void {
+	if (orphanToolCalls === 0 && orphanToolResults === 0) {
+		return;
+	}
+	logger.warn(
+		formatRequestLogLine(
+			requestKind,
+			`[tool-pairing] repaired history: orphanToolCalls=${orphanToolCalls} orphanToolResults=${orphanToolResults}`,
+		),
+	);
 }
 
 interface VisionMessageStats {

@@ -2,11 +2,13 @@ import vscode from 'vscode';
 import { setErrorActionUrl, type ErrorActionUrls } from '../client';
 import {
 	CONFIGURE_API_KEY_URI_PATH,
+	CONFIGURE_TOOLS_URI_PATH,
 	SET_VISION_MODEL_URI_PATH,
 	SHOW_LOGS_URI_PATH,
 } from '../consts';
 import { logger } from '../logger';
 import {
+	setConfigureToolsUrl,
 	setProviderNoticeShowLogsUrl,
 	setVisionProxyConfigurationUrl,
 } from '../provider/tools/notices';
@@ -39,6 +41,12 @@ const ACTION_URLS: readonly ActionUrlDefinition[] = [
 		handle: () => vscode.commands.executeCommand('deepseek-copilot.setVisionModel'),
 		resolveFailureMessage: 'Failed to resolve DeepSeek set vision model URI',
 		setUrl: setVisionProxyConfigurationUrl,
+	},
+	{
+		path: CONFIGURE_TOOLS_URI_PATH,
+		handle: () => vscode.commands.executeCommand('workbench.action.chat.configureTools'),
+		resolveFailureMessage: 'Failed to resolve DeepSeek configure tools URI',
+		setUrl: setConfigureToolsUrl,
 	},
 ];
 

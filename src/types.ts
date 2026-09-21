@@ -69,6 +69,8 @@ export interface DeepSeekRequest {
 	stream_options?: {
 		include_usage: boolean;
 	};
+	/** Optional stable per-user identifier for KV cache / scheduling isolation. */
+	user_id?: string;
 }
 
 export interface DeepSeekStreamChunk {

@@ -1,6 +1,9 @@
 import vscode from 'vscode';
 import { t } from '../../i18n';
+import { getToolBudgetFingerprint, type ToolBudgetResult } from './budget';
 import {
+	TOOL_BUDGET_NOTICE_END,
+	TOOL_BUDGET_NOTICE_START,
 	TOOL_DRIFT_NOTICE_END,
 	TOOL_DRIFT_NOTICE_START,
 	VISION_PROXY_NOTICE_END,
@@ -11,8 +14,11 @@ import { formatVisionProxyDisplayMessage } from '../vision/protocols/errors';
 type LanguageModelChatRequestMessagePart =
 	vscode.LanguageModelChatRequestMessage['content'][number];
 
+const TOOL_BUDGET_NOTICE_TRACKED_SEGMENTS = 64;
+
 let visionProxyConfigurationUrl = 'command:deepseek-copilot.setVisionModel';
 let showLogsUrl = 'command:deepseek-copilot.showLogs';
+let configureToolsUrl = 'command:workbench.action.chat.configureTools';
 
 export function setVisionProxyConfigurationUrl(url: string): void {
 	visionProxyConfigurationUrl = url;
@@ -20,6 +26,10 @@ export function setVisionProxyConfigurationUrl(url: string): void {
 
 export function setProviderNoticeShowLogsUrl(url: string): void {
 	showLogsUrl = url;
+}
+
+export function setConfigureToolsUrl(url: string): void {
+	configureToolsUrl = url;
 }
 
 export function createToolDriftNotice(): string {
@@ -32,6 +42,57 @@ export function createToolDriftNotice(): string {
 		TOOL_DRIFT_NOTICE_END,
 		'',
 	].join('\n');
+}
+
+export function createToolBudgetNotice(budget: ToolBudgetResult): string {
+	return [
+		'',
+		TOOL_BUDGET_NOTICE_START,
+		'',
+		createBlockquote(
+			t(
+				'notice.toolBudget',
+				budget.limit,
+				budget.kept,
+				budget.total,
+				budget.dropped.length,
+				configureToolsUrl,
+			),
+		),
+		'',
+		TOOL_BUDGET_NOTICE_END,
+		'',
+	].join('\n');
+}
+
+/**
+ * Decides whether the tool-budget notice should be shown for a request: once
+ * per conversation segment, and again only when the set of dropped tools
+ * changes. Without this the notice would repeat on every turn.
+ */
+export class ToolBudgetNoticeTracker {
+	private readonly fingerprints = new Map<string, string>();
+
+	shouldReport(segmentId: string, budget: ToolBudgetResult | undefined): boolean {
+		const fingerprint = budget ? getToolBudgetFingerprint(budget) : '';
+		const previous = this.fingerprints.get(segmentId);
+		if (previous === fingerprint) {
+			return false;
+		}
+
+		// Refresh insertion order so the most recently active segments survive eviction.
+		this.fingerprints.delete(segmentId);
+		this.fingerprints.set(segmentId, fingerprint);
+		while (this.fingerprints.size > TOOL_BUDGET_NOTICE_TRACKED_SEGMENTS) {
+			const oldest = this.fingerprints.keys().next().value;
+			if (oldest === undefined) {
+				break;
+			}
+			this.fingerprints.delete(oldest);
+		}
+
+		return fingerprint.length > 0;
+	}
 }
 
 export function createVisionProxyMissingNotice(): string {
@@ -114,6 +175,7 @@ function stripProviderNotices(value: string): string {
 	let result = value;
 	for (const marker of [
 		{ start: TOOL_DRIFT_NOTICE_START, end: TOOL_DRIFT_NOTICE_END },
+		{ start: TOOL_BUDGET_NOTICE_START, end: TOOL_BUDGET_NOTICE_END },
 		{ start: VISION_PROXY_NOTICE_START, end: VISION_PROXY_NOTICE_END },
 	]) {
 		result = stripProviderNotice(result, marker.start, marker.end);
