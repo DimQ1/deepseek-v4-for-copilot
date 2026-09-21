@@ -1,0 +1,121 @@
+name: Build and publish VSIX release
+
+# Standalone release path for forks and manual builds: no Marketplace / Open VSX
+# secrets required. Pushing a tag `vX.Y.Z` (or running the workflow manually
+# on a tag) builds the extension, verifies the tag matches package.json and
+# publishes a GitHub Release with the VSIX attached.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Existing tag to build and release, e.g. v0.10.0 (defaults to the selected ref)"
+        required: false
+        type: string
+      prerelease:
+        description: Mark the GitHub Release as a pre-release
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-release-${{ inputs.tag_name || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      tag_name: ${{ steps.meta.outputs.tag_name }}
+      vsix_path: ${{ steps.vsix.outputs.path }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name && format('refs/tags/{0}', inputs.tag_name) || github.ref }}
+          fetch-depth: 0
+
+      - name: Resolve tag and check package.json version
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            tag="${{ inputs.tag_name }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          else
+            tag="$(git describe --tags --exact-match 2>/dev/null || true)"
+          fi
+          if [ -z "${tag}" ]; then
+            echo "This workflow must run on a tag (vX.Y.Z) or be given tag_name." >&2
+            exit 1
+          fi
+          version="$(node -p "require('./package.json').version")"
+          if [ "${tag}" != "v${version}" ]; then
+            echo "Tag ${tag} does not match package.json version v${version}." >&2
+            exit 1
+          fi
+          echo "tag_name=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Building ${tag}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run format:check
+
+      - run: rm -rf dist && mkdir -p dist && npm run package
+
+      - name: Locate VSIX
+        id: vsix
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(dist/*.vsix)
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "Expected exactly one VSIX in dist, found ${#files[@]}" >&2
+            printf '%s\n' "${files[@]}" >&2
+            exit 1
+          fi
+          echo "path=${files[0]}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.tag_name }}-vsix
+          path: ${{ steps.vsix.outputs.path }}
+          if-no-files-found: error
+          retention-days: 90
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.tag_name }}-vsix
+          path: dist
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.tag_name }}
+          name: ${{ needs.build.outputs.tag_name }}
+          generate_release_notes: true
+          prerelease: ${{ inputs.prerelease == true }}
+          files: dist/*.vsix
+          fail_on_unmatched_files: true
+          body: |
+            Install locally: download the `.vsix` below and run
+            `code --install-extension <file>.vsix`, then reload the VS Code window.
