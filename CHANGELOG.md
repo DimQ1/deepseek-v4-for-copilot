@@ -1,12 +1,25 @@
 # Changelog
 
-## [0.10.0](https://github.com/DimQ1/deepseek-v4-for-copilot/compare/v0.9.4...v0.10.0) (2026-09-21)
+## [0.10.1](https://github.com/DimQ1/deepseek-v4-for-copilot/compare/v0.10.0...v0.10.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **provider:** make the tool limit opt-in ([44fcdfb](https://github.com/DimQ1/deepseek-v4-for-copilot/commit/44fcdfb)): `deepseek-copilot.toolsLimit` now defaults to `0` (no limit), so agent sessions with more than 128 tools send every enabled tool; trimming applies only when a limit is set
+* **provider:** send tool results before user text in the same message ([99b3949](https://github.com/DimQ1/deepseek-v4-for-copilot/commit/99b3949)), so the pairing repair no longer replaces real tool results with a "cancelled" stub
+
+
+### Miscellaneous
+
+* rebase onto upstream [v0.9.4](https://github.com/Vizards/deepseek-v4-for-copilot/releases/tag/v0.9.4): schemas for parameterless tools ([#282](https://github.com/Vizards/deepseek-v4-for-copilot/issues/282)), stale 128-tool limit removed ([#291](https://github.com/Vizards/deepseek-v4-for-copilot/issues/291)), `@vscode/vsce` 4.0.0 and `ovsx` 1.2.0
+
+## [0.10.0](https://github.com/DimQ1/deepseek-v4-for-copilot/compare/v0.9.2...v0.10.0) (2026-09-21)
 
 
 ### Features
 
-* **provider:** optional tool budget ([45f67a1](https://github.com/DimQ1/deepseek-v4-for-copilot/commit/45f67a1)): when `deepseek-copilot.toolsLimit` is set (default `0`, no limit), trim the tools array deterministically to it with a one-time chat notice instead of failing; new settings `deepseek-copilot.toolsLimitBehavior`, `deepseek-copilot.toolsLimit`, `deepseek-copilot.sendUserId`
-* **provider:** sanitize tool names, skip stabilization preflight when already over the configured limit, honor `toolMode: Required` when thinking is disabled
+* **provider:** enforce DeepSeek tool budget instead of failing requests ([cf863a7](https://github.com/DimQ1/deepseek-v4-for-copilot/commit/cf863a7)): trim the tools array deterministically to the API limit with a one-time chat notice; new settings `deepseek-copilot.toolsLimitBehavior`, `deepseek-copilot.toolsLimit`, `deepseek-copilot.sendUserId`
+* **provider:** sanitize tool names, skip stabilization preflight when already over the limit, honor `toolMode: Required` when thinking is disabled
 * **client:** retry once on HTTP 429/500/503 and surface server hints for 400/422 in the chat
 
 
