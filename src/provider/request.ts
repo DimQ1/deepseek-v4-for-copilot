@@ -116,7 +116,7 @@ export async function prepareChatRequest({
 		options,
 		deepseekMessages,
 		{
-			limit: resolveToolsLimit(getToolsLimit(), modelDef?.capabilities.toolCalling),
+			limit: resolveToolsLimit(getToolsLimit()),
 			behavior: getToolsLimitBehavior(),
 			stabilizeToolList: getStabilizeToolListEnabled(),
 		},

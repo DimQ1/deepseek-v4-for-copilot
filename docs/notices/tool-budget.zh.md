@@ -4,12 +4,15 @@ DeepSeek V4 for Copilot Chat 发送给 DeepSeek 的工具数量少于当前会�
 
 ## 为什么会发生
 
-DeepSeek Chat Completions API 单次请求最多接受 **128 个 functions**（`deepseek-copilot.toolsLimit`）。Copilot Chat 通常会把工具分组为 `activate_*` 虚拟工具，使列表保持在上限以内。以下情况仍会超出上限：
+你为 `deepseek-copilot.toolsLimit` 设置了数值，而已启用的工具数量超过了该上限。该上限默认关闭（`0`）：官方 DeepSeek API 没有公布工具数量上限，会接受所有已启用的工具。仅在兼容端点拒绝过大的工具列表、或希望缩短提示词时才需要设置。
 
-1. 调高了 `github.copilot.chat.virtualTools.threshold` 或将其设为 `0`（关闭分组）；
-2. `deepseek-copilot.experimental.stabilizeToolList` 展开了虚拟工具分组。
+以下情况最容易超出上限：
 
-扩展不再让请求失败，而是把列表裁剪到上限以内（`deepseek-copilot.toolsLimitBehavior: trim`）。
+1. 启用了多个 MCP 服务器或扩展工具；
+2. 调高了 `github.copilot.chat.virtualTools.threshold` 或将其设为 `0`（关闭分组）；
+3. `deepseek-copilot.experimental.stabilizeToolList` 展开了虚拟工具分组。
+
+扩展不会让请求失败，而是把列表裁剪到上限以内（`deepseek-copilot.toolsLimitBehavior: trim`）。
 
 ## 保留哪些工具
 
@@ -26,7 +29,8 @@ DeepSeek Chat Completions API 单次请求最多接受 **128 个 functions**（`
 ## 你可以怎么做
 
 1. 运行 **配置工具**（`workbench.action.chat.configureTools`），禁用本次会话不需要的工具或 MCP 服务器；
-2. 保持 `github.copilot.chat.virtualTools.threshold` 为默认值，让 Copilot 自行分组；
-3. 如果希望请求直接失败，把 `deepseek-copilot.toolsLimitBehavior` 设为 `error`。
+2. 调高 `deepseek-copilot.toolsLimit`，或将其改回 `0` 以发送所有已启用的工具；
+3. 保持 `github.copilot.chat.virtualTools.threshold` 为默认值，让 Copilot 自行分组；
+4. 如果希望请求直接失败，把 `deepseek-copilot.toolsLimitBehavior` 设为 `error`。
 
 该提示在每个会话中只显示一次，仅当被省略的工具集合发生变化时才会再次显示。在 `deepseek-copilot.debugMode: metadata` 下，日志会输出仅包含计数的 `[tool-budget]` 行。

@@ -5,8 +5,8 @@
 
 ### Features
 
-* **provider:** enforce DeepSeek tool budget instead of failing requests ([45f67a1](https://github.com/DimQ1/deepseek-v4-for-copilot/commit/45f67a1)): trim the tools array deterministically to the API limit with a one-time chat notice; new settings `deepseek-copilot.toolsLimitBehavior`, `deepseek-copilot.toolsLimit`, `deepseek-copilot.sendUserId`
-* **provider:** sanitize tool names, skip stabilization preflight when already over the limit, honor `toolMode: Required` when thinking is disabled
+* **provider:** optional tool budget ([45f67a1](https://github.com/DimQ1/deepseek-v4-for-copilot/commit/45f67a1)): when `deepseek-copilot.toolsLimit` is set (default `0`, no limit), trim the tools array deterministically to it with a one-time chat notice instead of failing; new settings `deepseek-copilot.toolsLimitBehavior`, `deepseek-copilot.toolsLimit`, `deepseek-copilot.sendUserId`
+* **provider:** sanitize tool names, skip stabilization preflight when already over the configured limit, honor `toolMode: Required` when thinking is disabled
 * **client:** retry once on HTTP 429/500/503 and surface server hints for 400/422 in the chat
 
 

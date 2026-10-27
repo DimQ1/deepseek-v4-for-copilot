@@ -161,8 +161,8 @@
         },
         "deepseek-copilot.toolsLimit": {
           "type": "number",
-          "default": 128,
-          "minimum": 1,
+          "default": 0,
+          "minimum": 0,
           "markdownDescription": "%deepseek-copilot.config.toolsLimit.description%",
           "tags": [
             "advanced"

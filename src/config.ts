@@ -76,8 +76,8 @@ export function getStabilizeToolListEnabled(): boolean {
 }
 
 /**
- * What to do when more tools are enabled than the API accepts per request:
- * `trim` sends a deterministic subset, `error` fails the request (legacy).
+ * What to do when more tools are enabled than `toolsLimit` allows:
+ * `trim` sends a deterministic subset, `error` fails the request.
  */
 export function getToolsLimitBehavior(): ToolsLimitBehavior {
 	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
@@ -85,8 +85,8 @@ export function getToolsLimitBehavior(): ToolsLimitBehavior {
 }
 
 /**
- * Maximum number of functions per request. Returns `undefined` when unset or
- * invalid so the model capability / DeepSeek default applies.
+ * Maximum number of functions per request. Returns `undefined` when unset, 0
+ * or invalid: no limit is applied.
  */
 export function getToolsLimit(): number | undefined {
 	const config = vscode.workspace.getConfiguration(CONFIG_SECTION);

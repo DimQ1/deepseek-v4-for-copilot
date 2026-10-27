@@ -4,12 +4,15 @@ DeepSeek V4 for Copilot Chat sent fewer tools to DeepSeek than you have enabled 
 
 ## Why This Happens
 
-The DeepSeek Chat Completions API accepts at most **128 functions** in one request (`deepseek-copilot.toolsLimit`). Copilot Chat normally keeps the list under this limit by grouping tools into `activate_*` virtual tools. The limit is still exceeded when:
+You set `deepseek-copilot.toolsLimit` to a number, and more tools are enabled than it allows. The limit is off by default (`0`): the official DeepSeek API publishes no tool-count limit and accepts every enabled tool. Set one only for a compatible endpoint that rejects large tool lists, or to keep prompts smaller.
 
-1. `github.copilot.chat.virtualTools.threshold` was raised or set to `0` (grouping disabled), or
-2. `deepseek-copilot.experimental.stabilizeToolList` expanded the virtual tool groups.
+The list grows past the limit most often when:
 
-Instead of failing the request, the extension now trims the list to the limit (`deepseek-copilot.toolsLimitBehavior: trim`).
+1. several MCP servers or extension tools are enabled,
+2. `github.copilot.chat.virtualTools.threshold` was raised or set to `0` (grouping disabled), or
+3. `deepseek-copilot.experimental.stabilizeToolList` expanded the virtual tool groups.
+
+Instead of failing the request, the extension trims the list to the limit (`deepseek-copilot.toolsLimitBehavior: trim`).
 
 ## What Is Kept
 
@@ -26,7 +29,8 @@ If the model calls a tool that was left out, the call still reaches Copilot, and
 ## What You Can Do
 
 1. Run **Configure Tools** (`workbench.action.chat.configureTools`) and disable tools or MCP servers you do not need in this chat.
-2. Keep `github.copilot.chat.virtualTools.threshold` at its default so Copilot groups tools itself.
-3. Set `deepseek-copilot.toolsLimitBehavior` to `error` if you prefer the request to fail instead.
+2. Raise `deepseek-copilot.toolsLimit`, or set it back to `0` to send every enabled tool.
+3. Keep `github.copilot.chat.virtualTools.threshold` at its default so Copilot groups tools itself.
+4. Set `deepseek-copilot.toolsLimitBehavior` to `error` if you prefer the request to fail instead.
 
 The notice is shown once per conversation and again only when the set of omitted tools changes. With `deepseek-copilot.debugMode: metadata`, the log shows a `[tool-budget]` line with counts only.

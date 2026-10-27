@@ -1,14 +1,14 @@
 import type { DeepSeekMessage, DeepSeekTool } from '../../types';
 import {
 	ACTIVATE_TOOL_PREFIX,
-	DEEPSEEK_TOOLS_LIMIT,
 	TOOL_BUDGET_PINNED_HISTORY_TURNS,
 	TOOL_NAME_PATTERN,
 } from './consts';
 
 /**
- * Tool budget: keep the DeepSeek `tools` array within the API limit without
- * failing the request.
+ * Tool budget: keep the DeepSeek `tools` array within a user-configured limit
+ * without failing the request. The official API publishes no tool-count limit,
+ * so there is none unless `deepseek-copilot.toolsLimit` sets one.
  *
  * This module is intentionally free of VS Code API dependencies so it can be
  * unit-tested as a pure function.
@@ -48,16 +48,12 @@ export interface SanitizedTools {
 	invalid: string[];
 }
 
-export function resolveToolsLimit(
-	configuredLimit: number | undefined,
-	toolCallingCapability: boolean | number | undefined,
-): number {
+/** Configured limit, or `Infinity` (no trimming) when the setting is unset or 0. */
+export function resolveToolsLimit(configuredLimit: number | undefined): number {
 	if (configuredLimit !== undefined && Number.isFinite(configuredLimit) && configuredLimit > 0) {
 		return Math.floor(configuredLimit);
 	}
-	return typeof toolCallingCapability === 'number' && toolCallingCapability > 0
-		? toolCallingCapability
-		: DEEPSEEK_TOOLS_LIMIT;
+	return Number.POSITIVE_INFINITY;
 }
 
 /**

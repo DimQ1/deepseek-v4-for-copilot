@@ -191,9 +191,9 @@ const zh: Translations = {
 
 	// Request
 	'request.toolsLimitExceeded':
-		'DeepSeek 单次 tools 请求最多支持 {0} 个 functions，当前请求包含 {1} 个。请先用 VS Code 的 Configure Tools 关闭不常用的工具；如果正在使用实验性稳定工具列表设置，请关闭它。也可以将 `deepseek-copilot.toolsLimitBehavior` 设为 `trim`，自动裁剪工具列表。',
+		'`deepseek-copilot.toolsLimit` 限制单次请求最多 {0} 个 functions，当前请求包含 {1} 个。请用 VS Code 的 Configure Tools 关闭不常用的工具、调高上限，或将 `deepseek-copilot.toolsLimitBehavior` 设为 `trim`，自动裁剪工具列表。',
 	'notice.toolBudget':
-		'⚠️ DeepSeek 单次请求最多接受 {0} 个工具。本次发送了 {2} 个已启用工具中的 {1} 个，{3} 个被省略。请用 [Configure Tools]({4}) 选择要保留的工具。[了解更多](https://github.com/Vizards/deepseek-v4-for-copilot/blob/main/docs/notices/tool-budget.zh.md)',
+		'⚠️ `deepseek-copilot.toolsLimit` 限制单次请求最多 {0} 个工具。本次发送了 {2} 个已启用工具中的 {1} 个，{3} 个被省略。请用 [Configure Tools]({4}) 选择要保留的工具。[了解更多](https://github.com/Vizards/deepseek-v4-for-copilot/blob/main/docs/notices/tool-budget.zh.md)',
 	'notice.toolCallArgumentsInvalid':
 		'⚠️ DeepSeek 返回的 `{0}` 工具调用参数不是有效的 JSON（通常是输出被截断），该调用已跳过。请重试或缩小任务范围。',
 	'request.preflightRoundLimitExceeded':
@@ -440,9 +440,9 @@ const en: Translations = {
 
 	// Request
 	'request.toolsLimitExceeded':
-		'DeepSeek supports at most {0} functions in a single `tools` request, but this request contains {1}. Use VS Code Configure Tools to disable tools you rarely use. If the experimental tool-list stabilization setting is enabled, turn it off. Alternatively set `deepseek-copilot.toolsLimitBehavior` to `trim` to send a trimmed tool list automatically.',
+		'`deepseek-copilot.toolsLimit` allows at most {0} functions per request, but this request contains {1}. Use VS Code Configure Tools to disable tools you rarely use, raise the limit, or set `deepseek-copilot.toolsLimitBehavior` to `trim` to send a trimmed tool list automatically.',
 	'notice.toolBudget':
-		'⚠️ DeepSeek accepts at most {0} tools per request. {1} of {2} enabled tools were sent; {3} were left out. Use [Configure Tools]({4}) to choose which tools stay enabled. [Learn more](https://github.com/Vizards/deepseek-v4-for-copilot/blob/main/docs/notices/tool-budget.en.md)',
+		'⚠️ `deepseek-copilot.toolsLimit` allows {0} tools per request. {1} of {2} enabled tools were sent; {3} were left out. Use [Configure Tools]({4}) to choose which tools stay enabled. [Learn more](https://github.com/Vizards/deepseek-v4-for-copilot/blob/main/docs/notices/tool-budget.en.md)',
 	'notice.toolCallArgumentsInvalid':
 		'⚠️ DeepSeek returned a `{0}` tool call with malformed JSON arguments (usually truncated output); the call was skipped. Try again or narrow the task.',
 	'request.preflightRoundLimitExceeded':

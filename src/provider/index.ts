@@ -184,10 +184,9 @@ export class DeepSeekChatProvider implements vscode.LanguageModelChatProvider {
 			requestKind,
 		});
 
-		const modelDef = MODELS.find((m) => m.id === modelInfo.id);
 		const toolFlow = processToolFlow({
 			stabilizeToolList: getStabilizeToolListEnabled(),
-			toolsLimit: resolveToolsLimit(getToolsLimit(), modelDef?.capabilities.toolCalling),
+			toolsLimit: resolveToolsLimit(getToolsLimit()),
 			toolsLimitBehavior: getToolsLimitBehavior(),
 			messages,
 			tools: options.tools,

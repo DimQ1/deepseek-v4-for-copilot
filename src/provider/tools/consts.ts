@@ -1,7 +1,3 @@
-// DeepSeek Chat Completions API: "A max of 128 functions are supported."
-// https://api-docs.deepseek.com/api/create-chat-completion#:~:text=A%20max%20of%20128%20functions%20are%20supported.
-export const DEEPSEEK_TOOLS_LIMIT = 128;
-
 // DeepSeek: function names "must be a-z, A-Z, 0-9, or contain underscores and
 // dashes, with a maximum length of 128", and tool names must be unique.
 export const TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;

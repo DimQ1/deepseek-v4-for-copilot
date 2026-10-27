@@ -376,7 +376,7 @@ function summarizeToolBudget(budget: ToolBudgetResult | undefined): object | und
 		return undefined;
 	}
 	return {
-		limit: budget.limit,
+		limit: Number.isFinite(budget.limit) ? budget.limit : 'off',
 		total: budget.total,
 		kept: budget.kept,
 		pinned: budget.pinned,

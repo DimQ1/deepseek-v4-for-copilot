@@ -311,7 +311,7 @@ export function logToolBudgetDiagnostics({
 	logger.info(
 		formatRequestLogLine(
 			requestKind,
-			`[tool-budget] limit=${budget.limit}` +
+			`[tool-budget] limit=${Number.isFinite(budget.limit) ? budget.limit : 'off'}` +
 				` total=${budget.total}` +
 				` kept=${budget.kept}` +
 				` pinned=${budget.pinned}` +
