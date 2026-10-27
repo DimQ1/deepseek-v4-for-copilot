@@ -66,6 +66,12 @@ export function convertMessages(
 			}
 		}
 
+		const toolMessages: DeepSeekMessage[] = toolResults.map((tr) => ({
+			role: 'tool',
+			content: convertToolResultContent(tr, nativeImageInput),
+			tool_call_id: tr.callId,
+		}));
+
 		if (role === 'assistant') {
 			if (content || toolCalls.length > 0) {
 				const replayMarker = isThinkingModel ? parseFirstReplayMarker(message) : undefined;
@@ -84,7 +90,11 @@ export function convertMessages(
 
 				result.push(msg);
 			}
+			result.push(...toolMessages);
 		} else {
+			// Tool results answer the preceding assistant `tool_calls`, so they must
+			// directly follow it, before any text Copilot put in the same message.
+			result.push(...toolMessages);
 			if (nativeImageInput && role === 'user' && nativeVisionContentParts.length > 0) {
 				result.push({
 					role: 'user',
@@ -96,15 +106,6 @@ export function convertMessages(
 					content: content,
 				});
 			}
-		}
-
-		// Tool result messages follow their associated assistant message
-		for (const tr of toolResults) {
-			result.push({
-				role: 'tool',
-				content: convertToolResultContent(tr, nativeImageInput),
-				tool_call_id: tr.callId,
-			});
 		}
 	}
 
